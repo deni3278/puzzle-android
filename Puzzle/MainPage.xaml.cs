@@ -1,41 +1,47 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading.Tasks;
 using Xamarin.Forms;
 
 namespace Puzzle
 {
     public partial class MainPage : ContentPage
     {
-        private readonly ImageSource[] _images = new ImageSource[9];
-        private bool Initialized { get; set; }
-        private Image Selected { get; set; }
+        private readonly ImageSource[] _tiles = new ImageSource[9];
+        private Frame _selected;
 
         public MainPage()
         {
             InitializeComponent();
 
-            for (var i = 0; i < _images.Length; i++)
-            {
-                _images[i] = ImageSource.FromFile("tile_" + (9 - i) + ".jpg");
-            }
+            var recognizer = new TapGestureRecognizer();
+            recognizer.Tapped += Start;
+
+            Welcome.GestureRecognizers.Add(recognizer);
         }
 
-        private void Initialize()
+        private async Task CheckWin()
         {
-            var width = Application.Current.MainPage.Width;
-            var height = Application.Current.MainPage.Height;
-            var pieceLength = (width <= height ? width : height) / 3;
-
-            foreach (var row in Grid.RowDefinitions)
+            for (var i = 0; i < BoardGrid.Children.Count; i++)
             {
-                row.Height = pieceLength;
+                var frame = BoardGrid.Children[i] as Frame;
+                var tile = frame.Children[0] as Image;
+
+                if (frame.Rotation % 360 != 0) return;
+                if (tile.Source != _tiles[i]) return;
             }
 
-            foreach (var column in Grid.ColumnDefinitions)
-            {
-                column.Width = pieceLength;
-            }
+            await DisplayAlert("Result", "You win!", "OK");
+
+            Reset(this, EventArgs.Empty);
+        }
+
+        private void Start(object sender, EventArgs args)
+        {
+            Welcome.IsVisible = false;
+            Board.IsVisible = true;
+            WelcomeRow.Height = 0;
+            BoardRow.Height = GridLength.Star;
 
             var singleTapRecognizer = new TapGestureRecognizer
             {
@@ -47,29 +53,67 @@ namespace Puzzle
                 NumberOfTapsRequired = 2
             };
 
-            singleTapRecognizer.Tapped += OnSingleTap;
-            doubleTapRecognizer.Tapped += OnDoubleTap;
+            singleTapRecognizer.Tapped += Select;
+            doubleTapRecognizer.Tapped += Rotate;
 
-            foreach (var child in Grid.Children)
+            foreach (var view in BoardGrid.Children)
             {
-                var frame = (Frame) child;
+                var frame = view as Frame;
+
                 frame.GestureRecognizers.Add(singleTapRecognizer);
                 frame.GestureRecognizers.Add(doubleTapRecognizer);
             }
+
+            Reset(this, EventArgs.Empty);
         }
 
-        private void Reset()
+        private async void Select(object sender, EventArgs e)
         {
-            if (!Initialized)
+            var frame = sender as Frame;
+            var tile = frame.Children[0] as Image;
+
+            if (_selected == null)
             {
-                Initialize();
-                Initialized = true;
+                frame.BorderColor = Color.White;
+                _selected = tile.Parent as Frame;
+            } else if (_selected == frame)
+            {
+                frame.BorderColor = Color.SaddleBrown;
+                _selected = null;
+            }
+            else
+            {
+                _selected.BorderColor = Color.SaddleBrown;
+                (_selected.Rotation, frame.Rotation) = (frame.Rotation, _selected.Rotation);
+                ((_selected.Children[0] as Image).Source, tile.Source) = (tile.Source, (_selected.Children[0] as Image).Source);
+                _selected = null;
+
+                await CheckWin();
+            }
+        }
+
+        private async void Rotate(object sender, EventArgs e)
+        {
+            var frame = sender as Frame;
+
+            frame.Rotation += 90;
+
+            await CheckWin();
+        }
+
+        private void Reset(object sender, EventArgs args)
+        {
+            var random = new Random();
+            var image = char.Parse("a") + random.Next(3);
+
+            for (var i = 0; i < _tiles.Length; i++)
+            {
+                _tiles[i] = ImageSource.FromFile(new string(new[]{(char) image}) + "_" + (9 - i) + ".jpg");
             }
 
-            var random = new Random();
-            var reserved = new List<int>(_images.Length);
+            var reserved = new List<int>(_tiles.Length);
 
-            foreach (var child in Grid.Children)
+            foreach (var child in BoardGrid.Children)
             {
                 var index = random.Next(9);
 
@@ -81,78 +125,11 @@ namespace Puzzle
                 reserved.Add(index);
 
                 var frame = (Frame) child;
-                var image = frame.Children[0] as Image;
-                image.Source = _images[index];
-            }
+                var view = frame.Children[0] as Image;
 
-            foreach (var child in Grid.Children)
-            {
-                var frame = (Frame) child;
                 frame.Rotation = random.Next(4) * 90;
+                view.Source = _tiles[index];
             }
-        }
-
-        private void Reset_OnClicked(object sender, EventArgs e)
-        {
-            Reset();
-        }
-
-        private void CheckWin()
-        {
-            var win = false;
-
-            for (var i = 0; i < Grid.Children.Count; i++)
-            {
-                if (!(Grid.Children[i] is Frame frame)) return;
-                if (!(frame.Children[0] is Image image)) return;
-
-                var isUpright = frame.Rotation % 360 == 0;
-                var isCorrectLocation = image.Source == _images[i];
-
-                Debug.WriteLine(i + ": " + isUpright);
-
-                win = isUpright && isCorrectLocation;
-            }
-
-            if (win) DisplayAlert("Result", "You win!", "OK");
-        }
-
-        private void OnSingleTap(object sender, EventArgs args)
-        {
-            if (!(sender is Frame frame)) return;
-            if (!(frame.Children[0] is Image image)) return;
-
-            if (Selected == null)
-            {
-                frame.BorderColor = Color.Red;
-                Selected = image;
-            } else if (Selected == image)
-            {
-                frame.BorderColor = Color.Transparent;
-                Selected = null;
-            }
-            else
-            {
-                ((Frame) Selected.Parent).BorderColor = Color.Transparent;
-                (((Frame) Selected.Parent).Rotation, frame.Rotation) = (frame.Rotation, ((Frame) Selected.Parent).Rotation);
-                (Selected.Source, image.Source) = (image.Source, Selected.Source);
-                Selected = null;
-
-                CheckWin();
-            }
-        }
-
-        private void OnDoubleTap(object sender, EventArgs args)
-        {
-            if (Selected != null)
-            {
-                ((Frame) Selected.Parent).BorderColor = Color.Transparent;
-                Selected = null;
-            }
-
-            if (sender is Frame frame) frame.Rotation += 90;
-
-            CheckWin();
         }
     }
 }
