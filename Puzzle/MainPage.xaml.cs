@@ -89,7 +89,6 @@ namespace Puzzle
             {
                 var frame = (Frame) child;
                 frame.Rotation = random.Next(4) * 90;
-                Debug.WriteLine("Rotation: " + frame.Rotation);
             }
         }
 
@@ -152,9 +151,6 @@ namespace Puzzle
             }
 
             if (sender is Frame frame) frame.Rotation += 90;
-
-            Debug.WriteLine("Modulo: " + ((Frame)sender).Rotation % 360);
-            Debug.WriteLine("Rotation: " + ((Frame)sender).Rotation);
 
             CheckWin();
         }
