@@ -14,6 +14,8 @@ namespace Puzzle
         {
             InitializeComponent();
 
+            // Add tap recognizer to the start box
+            
             var recognizer = new TapGestureRecognizer();
             recognizer.Tapped += Start;
 
@@ -22,6 +24,8 @@ namespace Puzzle
 
         private async Task CheckWin()
         {
+            // Check each tile to see if it's rotation is 0 and it's image matches the image at the same index in the original images array
+            
             for (var i = 0; i < BoardGrid.Children.Count; i++)
             {
                 var frame = BoardGrid.Children[i] as Frame;
@@ -38,6 +42,8 @@ namespace Puzzle
 
         private void Start(object sender, EventArgs args)
         {
+            // Hide the welcome area and display the game board
+            
             Welcome.IsVisible = false;
             Board.IsVisible = true;
             WelcomeRow.Height = 0;
@@ -72,6 +78,8 @@ namespace Puzzle
             var frame = sender as Frame;
             var tile = frame.Children[0] as Image;
 
+            // Add/remove the border around a selected tile and swap tiles if two are selected
+            
             if (_selected == null)
             {
                 frame.BorderColor = Color.White;
@@ -103,14 +111,20 @@ namespace Puzzle
 
         private void Reset(object sender, EventArgs args)
         {
+            // Choose a random game board image
+            
             var random = new Random();
             var image = char.Parse("a") + random.Next(3);
 
+            // Initialize the tiles array with the image
+            
             for (var i = 0; i < _tiles.Length; i++)
             {
                 _tiles[i] = ImageSource.FromFile(new string(new[]{(char) image}) + "_" + (9 - i) + ".jpg");
             }
 
+            // Place image pieces in random tiles on the game board
+            
             var reserved = new List<int>(_tiles.Length);
 
             foreach (var child in BoardGrid.Children)
@@ -126,6 +140,8 @@ namespace Puzzle
 
                 var frame = (Frame) child;
                 var view = frame.Children[0] as Image;
+                
+                // Rotate the tile randomly
 
                 frame.Rotation = random.Next(4) * 90;
                 view.Source = _tiles[index];
